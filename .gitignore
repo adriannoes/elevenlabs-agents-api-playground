@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.hypothesis/
+
+# Type checking
+.dmypy.json
+dmypy.json
+
+# IDE / OS
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# ElevenLabs runtime artifacts
+data/output/
+data/cache/
+*.mp3
+*.wav
+*.flac
+*.opus
+*.pcm
+
+# Gradio
+gradio_cached_examples/
+flagged/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_meta
+
+# uv lockfile is committed; lockfile cache is not
+.uv-cache/
+
+# Logs
+*.log
+logs/
+
+# Local agent transcripts (sensitive)
+data/transcripts/
+
+# Generated evidence artifacts (regenerate locally from documented commands)
+artifacts/reports/
+artifacts/benchmarks/
