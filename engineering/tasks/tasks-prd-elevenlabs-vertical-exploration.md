@@ -11,8 +11,20 @@
 - `tests/unit/test_client.py` — Unit tests for `_with_retry`. (Tasks 1.3 / 1.6)
 - `src/eleven_demo/config.py` — pydantic-settings loading from `.env`; Task 3.7 extends it with optional OpenAI benchmark settings. (Tasks 1.2 / 1.5 / 3.7)
 - `tests/unit/test_config.py` — Unit tests for `Settings` / `get_settings`. (Tasks 1.2 / 1.5)
-- `src/eleven_demo/tts/{__init__,sync,stream,ws}.py` — TTS surfaces: HTTP sync, HTTP chunked, WebSocket. (Task 2)
+- `tests/unit/tts/test_sync.py` — Unit tests for `synthesize` / `with_raw_response` metadata. (Task 2.1)
+- `tests/unit/tts/test_stream.py` — Unit tests for HTTP `stream()` + TTFB (mocked `perf_counter`). (Task 2.2)
+- `tests/unit/tts/test_ws.py` — Unit tests for WebSocket `ws_stream` (mocked connect + async recv). (Task 2.3)
+- `src/eleven_demo/tts/{sync,stream,ws}.py` — TTS: HTTP sync, HTTP chunked, WebSocket input-stream (`ws_stream`). `tts/__init__.py` exposes `synthesize` only. (Task 2)
 - `src/eleven_demo/stt/{__init__,batch,realtime,types}.py` — STT surfaces: batch and realtime WebSocket; shared transcript/event types. (Task 2)
+- `src/eleven_demo/stt/types.py` — Re-exports SDK batch types + `TranscriptEvent` for realtime WebSocket. (Tasks 2.4 / 2.5)
+- `src/eleven_demo/stt/batch.py` — `transcribe()` wraps `speech_to_text.convert` with PT-BR-friendly defaults. (Task 2.4)
+- `src/eleven_demo/stt/realtime.py` — `realtime_transcribe()` streams PCM chunks over `wss://…/v1/speech-to-text/realtime`. (Task 2.5)
+- `tests/unit/stt/test_realtime.py` — Mocked `websockets.connect` tests for realtime STT. (Task 2.5)
+- `tests/integration/stt/test_batch.py` — VCR integration test for batch STT on `data/samples/hello-pt-br.mp3`. (Tasks 2.4 / 2.7)
+- `tests/integration/tts/test_integration_sync.py` — VCR integration test for synchronous TTS + character billing metadata. (Task 2.6)
+- `tests/integration/tts/test_integration_stream.py` — VCR integration test for chunked HTTP streaming TTS + TTFB. (Task 2.6)
+- `tests/integration/tts/cassettes/*.yaml` — VCR cassettes for TTS integration tests (sanitized). (Task 2.6)
+- `data/samples/hello-pt-br.mp3` — PT-BR phrase audio for batch STT integration (generated via project TTS). (Tasks 2.4 / 2.7)
 - `src/eleven_demo/voices/{__init__,catalog}.py` — Voice Library helper with PT-BR filter. (Task 3)
 - `src/eleven_demo/metrics/{__init__,latency}.py` — TTFB decorator and `LatencyReport`. (Task 3)
 - `scripts/{tts_demo,tts_stream_ttfb,stt_demo,voices_pt_br}.py` — CLI exploration entry points. (Task 3)
@@ -122,7 +134,7 @@
 - `eleven_demo.stt.realtime.realtime_transcribe(...)` defaults to realtime model `scribe_v2_realtime` (confirm against [Models](https://elevenlabs.io/docs/overview/models)).
 - VCR-backed integration tests pass for sync TTS and batch STT; WS flows have unit tests with mocked sockets.
 
-- [ ] **2.1 Implement synchronous TTS**
+- [x] **2.1 Implement synchronous TTS**
   - **File**: `src/eleven_demo/tts/sync.py` (create new)
   - **What**: `synthesize(text: str, *, voice_id: str, model_id: str = "eleven_flash_v2_5", output_format: str = "mp3_22050_32", voice_settings: dict | None = None) -> tuple[bytes, dict]` returns `(audio_bytes, metadata)` where metadata contains `character_count: int`, `request_id: str`, `model_id: str`. Use `client.text_to_speech.with_raw_response.convert(...)` to capture headers; concatenate the iterable response into bytes.
   - **Why**: Foundation for all non-streaming demos. Raw response unlocks cost tracking per `.cursor/rules/elevenlabs-conventions.mdc` rule 3.
@@ -130,7 +142,7 @@
   - **Verify**: `uv run pytest tests/unit/tts/test_sync.py -v` is green.
   - **Integration**: Used by `scripts/tts_demo.py` and the Gradio TTS Playground tab.
 
-- [ ] **2.2 Implement HTTP streaming TTS with TTFB measurement**
+- [x] **2.2 Implement HTTP streaming TTS with TTFB measurement**
   - **File**: `src/eleven_demo/tts/stream.py` (create new)
   - **What**: `stream(text: str, *, voice_id: str, model_id: str = "eleven_flash_v2_5", output_format: str = "mp3_22050_32") -> Iterator[tuple[bytes, float | None]]` yields `(chunk, ttfb_seconds | None)` where `ttfb_seconds` is set only on the first chunk. Internally call `client.text_to_speech.stream(...)`. Use `time.perf_counter()` for measurement.
   - **Why**: Streaming is the latency story. Returning TTFB inline avoids state across calls.
@@ -138,7 +150,7 @@
   - **Verify**: `uv run pytest tests/unit/tts/test_stream.py -v` passes (mocked iterator + time control via `monkeypatch`).
   - **Integration**: Used by `scripts/tts_stream_ttfb.py` and the Gradio Latency tab.
 
-- [ ] **2.3 Implement WebSocket TTS (input streaming)**
+- [x] **2.3 Implement WebSocket TTS (input streaming)**
   - **File**: `src/eleven_demo/tts/ws.py` (create new)
   - **What**: `async def ws_stream(text_chunks: AsyncIterable[str], *, voice_id: str, model_id: str = "eleven_flash_v2_5", output_format: str = "mp3_22050_32") -> AsyncIterator[bytes]` connects to `wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input`, sends `{"text": " "}` first, then iterates over `text_chunks` sending `{"text": chunk + " ", "try_trigger_generation": True}`, then `{"text": ""}` at end. Decodes base64 audio frames and yields bytes.
   - **Why**: Demonstrates the lowest-latency TTS path; needed when an LLM is producing tokens word-by-word.
@@ -146,7 +158,7 @@
   - **Verify**: `uv run pytest tests/unit/tts/test_ws.py -v` passes (mocked `websockets.connect` via `pytest-asyncio` and `AsyncMock`).
   - **Integration**: Used by `apps/ws_bridge/main.py` (stretch).
 
-- [ ] **2.4 Implement batch STT**
+- [x] **2.4 Implement batch STT**
   - **File**: `src/eleven_demo/stt/batch.py` (create new)
   - **What**: `transcribe(file_path: Path, *, language: str = "por", model_id: str = "scribe_v1", diarize: bool = True, tag_audio_events: bool = True) -> Transcript` opens the file, calls `client.speech_to_text.convert(...)`, returns the SDK's `SpeechToTextChunkResponseModel`. Re-export the relevant types under `eleven_demo.stt.types`.
   - **Why**: Foundation for transcription-based demos and for verifying agent transcripts post-call.
@@ -154,26 +166,27 @@
   - **Verify**: `uv run pytest tests/integration/stt/test_batch.py -v` (VCR cassette) passes.
   - **Integration**: Used by `scripts/stt_demo.py`.
 
-- [ ] **2.5 Implement realtime STT WebSocket**
+- [x] **2.5 Implement realtime STT WebSocket**
   - **File**: `src/eleven_demo/stt/realtime.py` (create new)
   - **What**: `async def realtime_transcribe(audio_chunks: AsyncIterable[bytes], *, model_id: str | None = None, language_code: str = "por") -> AsyncIterator[TranscriptEvent]` — default `model_id` comes from `get_settings().stt_realtime_model_id` (`scribe_v2_realtime`). Connects to `wss://api.elevenlabs.io/v1/speech-to-text/realtime`, runs `sender` and `receiver` coroutines via `asyncio.gather`, yields events with shape `{type, text, is_partial}` mapped from partial / committed payloads ([Realtime WebSocket reference](https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime)).
   - **Why**: Enables live captioning demos and feeds an LLM as the user speaks.
   - **Pattern**: Follow snippet "Realtime STT (microphone-style streaming)" in `.cursor/skills/elevenlabs-api-cookbook/SKILL.md`.
   - **Verify**: `uv run pytest tests/unit/stt/test_realtime.py -v` (mocked websocket) passes.
 
-- [ ] **2.6 Integration tests for TTS sync + stream**
-  - **File**: `tests/integration/tts/test_sync.py`, `tests/integration/tts/test_stream.py` (create new)
+- [x] **2.6 Integration tests for TTS sync + stream**
+  - **File**: `tests/integration/tts/test_integration_sync.py`, `tests/integration/tts/test_integration_stream.py` (create new; basename must differ from `tests/unit/tts/test_sync.py` to avoid pytest import collisions)
   - **What**: One test each: send a known short text to a known voice id (the public `JBFqnCBsd6RMkjVDRZzb`), assert returned bytes start with the expected MP3 magic header (`b"ID3"` or `b"\xff\xfb"`) and metadata includes a non-zero character count. Mark `@pytest.mark.integration` and `@pytest.mark.vcr(filter_headers=["xi-api-key"], record_mode="once")`.
   - **Why**: Locks in the SDK contract and provides a CI-safe sanity check.
   - **Pattern**: Follow VCR pattern in `.cursor/rules/testing-standards.mdc`.
   - **Verify**: First run with `ELEVENLABS_API_KEY` set records cassettes; subsequent runs with no key replay them.
 
-- [ ] **2.7 Integration test for STT batch**
+- [x] **2.7 Integration test for STT batch**
   - **File**: `tests/integration/stt/test_batch.py` (create new), plus `data/samples/hello-pt-br.mp3` (~3 seconds, "olá, esta é uma demonstração")
   - **What**: Generate the sample by recording a short PT-BR phrase or by reusing a TTS output. Test asserts the transcript text contains a known substring.
   - **Why**: STT contracts can drift across model versions; pin via VCR.
   - **Pattern**: Same as 2.6.
   - **Verify**: `uv run pytest tests/integration/stt -v` passes.
+  - **Note**: Implemented alongside Task 2.4; audio is TTS-generated PT-BR MP3 (duration varies with synthesis settings).
 
 ---
 

@@ -51,6 +51,7 @@ Thumbs.db
 data/output/
 data/cache/
 *.mp3
+!data/samples/hello-pt-br.mp3
 *.wav
 *.flac
 *.opus

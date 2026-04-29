@@ -1,7 +1,7 @@
 # Technical Exploration Report
 
-**Status**: draft  
-**Project**: ElevenLabs Vertical Exploration  
+**Status**: draft
+**Project**: ElevenLabs Vertical Exploration
 **Last updated**: 2026-04-30
 
 ## Executive Summary

@@ -34,35 +34,35 @@ The full roadmap lives in [`engineering/tasks/tasks-prd-elevenlabs-vertical-expl
 
 These fictional scenarios are design targets for agents and tooling. Each one stresses a different combination of ElevenLabs primitives: tools, latency sensitivity, KB/RAG, compliance posture, and escalation.
 
-### 1. Telecom — “ACME Telecom” (PT-BR SAC)
+### 1. Telecom
 
-**Context** — Conversational SAC for a Brazilian B2C carrier (think major retail telcos): high **AHT**, **R$ 4–7** cost per call, legacy IVR dragging **NPS**.
+- **Context** — Conversational SAC for a Brazilian B2C carrier (think major retail telcos): high **AHT**, **R$ 4–7** cost per call, legacy IVR dragging **NPS**.
 
-**What it stresses on the platform** — A **PT-BR** agent authenticates (e.g. by **CPF**), retrieves plan / quota / balance through **server tools**, and escalates to a human when policy requires it.
+- **What it stresses on the platform** — A **PT-BR** agent authenticates (e.g. by **CPF**), retrieves plan / quota / balance through **server tools**, and escalates to a human when policy requires it.
 
-**Concrete mechanisms** — Mock tools such as `lookup_telecom_account(cpf)` and `transfer_to_human(reason)` for browser-friendly demos; in production, carriers often wire [**transfer_to_number**](https://elevenlabs.io/docs/eleven-agents/customization/tools/system-tools/transfer-to-number) for real PSTN/SIP — **out of scope here**, but called out so the demo stays honest.
+- **Concrete mechanisms** — Mock tools such as `lookup_telecom_account(cpf)` and `transfer_to_human(reason)` for browser-friendly demos; in production, carriers often wire [**transfer_to_number**](https://elevenlabs.io/docs/eleven-agents/customization/tools/system-tools/transfer-to-number) for real PSTN/SIP — **out of scope here**, but called out so the demo stays honest.
 
-**Reader takeaway** — Shows how **server tools + multilingual voice + escalation** map to measurable ops outcomes (deflection, AHT, cost per thousand calls).
+- **Reader takeaway** — Shows how **server tools + multilingual voice + escalation** map to measurable ops outcomes (deflection, AHT, cost per thousand calls).
 
-### 2. Banking — “Onyx Pay” (Brazilian digital bank)
+### 2. Banking
 
-**Context** — Very high inbound volume: balances, statements, card replacement, temporary blocks, fraud suspicion — expensive humans, strict regulation.
+- **Context** — Very high inbound volume: balances, statements, card replacement, temporary blocks, fraud suspicion — expensive humans, strict regulation.
 
-**What it stresses on the platform** — Authenticate with **CPF + verification signal** (e.g. last transaction amount), return a **balance summary**, execute **high-trust actions** (temporary card block, replacement request), route fraud cases to a human.
+- **What it stresses on the platform** — Authenticate with **CPF + verification signal** (e.g. last transaction amount), return a **balance summary**, execute **high-trust actions** (temporary card block, replacement request), route fraud cases to a human.
 
-**Concrete mechanisms** — Tools such as `lookup_account_summary(cpf)`, `request_card_block(...)`, `request_card_replacement(...)`, `transfer_to_human(reason)` — framed against **BACEN / LGPD / PCI-DSS** expectations and **Zero Retention Mode** where PII matters.
+- **Concrete mechanisms** — Tools such as `lookup_account_summary(cpf)`, `request_card_block(...)`, `request_card_replacement(...)`, `transfer_to_human(reason)` — framed against **BACEN / LGPD / PCI-DSS** expectations and **Zero Retention Mode** where PII matters.
 
-**Reader takeaway** — Surfaces **trust boundaries**, **tool schemas**, and **compliance-aware** agent design — not “chat about balance” in the abstract.
+- **Reader takeaway** — Surfaces **trust boundaries**, **tool schemas**, and **compliance-aware** agent design — not “chat about balance” in the abstract.
 
-### 3. Healthcare — “Vita Saúde” (clinic / health plan)
+### 3. Healthcare
 
-**Context** — Triage delays, **no-shows**, overloaded call centers — voice as a front door before a clinician.
+- **Context** — Triage delays, **no-shows**, overloaded call centers — voice as a front door before a clinician.
 
-**What it stresses on the platform** — **PT-BR triage** by symptoms; **RAG** over a **small fictional KB** (protocols, specialties, LGPD-style notice); suggest specialty; **book** an appointment via tools.
+- **What it stresses on the platform** — **PT-BR triage** by symptoms; **RAG** over a **small fictional KB** (protocols, specialties, LGPD-style notice); suggest specialty; **book** an appointment via tools.
 
-**Concrete mechanisms** — `book_medical_appointment(...)`, `transfer_to_human(reason)`; KB seeded with **non-real** documents so RAG stays demonstrable without leaking PHI into the narrative.
+- **Concrete mechanisms** — `book_medical_appointment(...)`, `transfer_to_human(reason)`; KB seeded with **non-real** documents so RAG stays demonstrable without leaking PHI into the narrative.
 
-**Reader takeaway** — Ties together **Knowledge Base**, **tools**, and **HIPAA-equivalent posture** (e.g. **ZRM**, redaction mindset) — the same pillars enterprise healthcare buyers ask about.
+- **Reader takeaway** — Ties together **Knowledge Base**, **tools**, and **HIPAA-equivalent posture** (e.g. **ZRM**, redaction mindset) — the same pillars enterprise healthcare buyers ask about.
 
 ---
 
