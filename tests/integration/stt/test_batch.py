@@ -20,7 +20,7 @@ _SAMPLE = _REPO_ROOT / "data" / "samples" / "hello-pt-br.mp3"
 def test_batch_transcribe_pt_br_sample() -> None:
     assert _SAMPLE.is_file(), f"Missing sample audio: {_SAMPLE}"
 
-    result = transcribe(_SAMPLE)
+    result = transcribe(_SAMPLE, model_id="scribe_v1")  # cassette: scribe_v1
 
     assert result.text
     lowered = result.text.lower()

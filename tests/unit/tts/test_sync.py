@@ -39,6 +39,8 @@ def test_synthesize_concatenates_chunks_and_returns_metadata(monkeypatch: Monkey
     assert meta["character_count"] == 42
     assert meta["request_id"] == "req-xyz"
     assert meta["model_id"] == "eleven_flash_v2_5"
+    assert meta["output_format"] == "mp3_22050_32"
+    assert meta["apply_text_normalization"] == "auto"
 
     kwargs = mock_client.text_to_speech.with_raw_response.convert.call_args.kwargs
     assert kwargs["voice_id"] == "voice-1"
@@ -46,6 +48,25 @@ def test_synthesize_concatenates_chunks_and_returns_metadata(monkeypatch: Monkey
     assert kwargs["model_id"] == "eleven_flash_v2_5"
     assert kwargs["output_format"] == "mp3_22050_32"
     assert "voice_settings" not in kwargs
+    assert "apply_text_normalization" not in kwargs
+
+
+def test_synthesize_passes_apply_text_normalization_when_on(monkeypatch: MonkeyPatch) -> None:
+    mock_http = MagicMock()
+    mock_http.headers = {"x-character-count": "1", "request-id": ""}
+    mock_http.data = iter([b"z"])
+
+    mock_client = MagicMock()
+    mock_client.text_to_speech.with_raw_response.convert.return_value = _make_convert_context(
+        mock_http
+    )
+
+    monkeypatch.setattr("eleven_demo.tts.sync.get_client", lambda: mock_client)
+
+    synthesize("z", voice_id="v", apply_text_normalization="on")
+
+    kwargs = mock_client.text_to_speech.with_raw_response.convert.call_args.kwargs
+    assert kwargs["apply_text_normalization"] == "on"
 
 
 def test_synthesize_voice_settings_validated_when_passed(monkeypatch: MonkeyPatch) -> None:

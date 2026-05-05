@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 
-from eleven_demo.config import Settings, get_settings
+from eleven_demo.config import (
+    Settings,
+    conversational_agent_voice_id,
+    get_settings,
+    resolve_conversational_agent_voice_id,
+)
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
@@ -108,3 +113,115 @@ def test_settings_instantiation_without_cache(monkeypatch: MonkeyPatch, tmp_path
     s = Settings()
 
     assert s.elevenlabs_api_key.get_secret_value() == "xi-direct"
+
+
+def test_openai_api_key_optional(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "xi-test-key")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    get_settings.cache_clear()
+
+    s = get_settings()
+    assert s.openai_api_key is None
+
+
+def test_openai_api_key_loaded_from_env(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "xi-test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
+    get_settings.cache_clear()
+
+    s = get_settings()
+    assert s.openai_api_key is not None
+    assert s.openai_api_key.get_secret_value() == "sk-openai-test"
+
+
+def test_openai_secret_not_in_repr(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "xi-test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-super-secret-openai")
+    get_settings.cache_clear()
+
+    s = get_settings()
+    text = repr(s)
+    assert "sk-super-secret-openai" not in text
+
+
+def test_conversational_agent_voice_id_prefers_agent_then_en_then_pt(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "xi-test-key")
+    monkeypatch.setenv("DEFAULT_AGENT_VOICE_ID", "voice-agent")
+    monkeypatch.setenv("DEFAULT_PT_VOICE_ID", "voice-pt")
+    monkeypatch.setenv("DEFAULT_EN_VOICE_ID", "voice-en")
+    get_settings.cache_clear()
+
+    s = get_settings()
+    assert conversational_agent_voice_id(s) == "voice-agent"
+
+
+def test_conversational_agent_voice_id_prefers_en_over_pt_when_agent_missing(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "xi-test-key")
+    monkeypatch.delenv("DEFAULT_AGENT_VOICE_ID", raising=False)
+    monkeypatch.setenv("DEFAULT_PT_VOICE_ID", "voice-pt")
+    monkeypatch.setenv("DEFAULT_EN_VOICE_ID", "voice-en")
+    get_settings.cache_clear()
+
+    s = get_settings()
+    assert conversational_agent_voice_id(s) == "voice-en"
+    assert resolve_conversational_agent_voice_id(s) == "voice-en"
+
+
+def test_conversational_agent_voice_id_falls_back_to_en_when_pt_missing(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "xi-test-key")
+    monkeypatch.delenv("DEFAULT_AGENT_VOICE_ID", raising=False)
+    monkeypatch.delenv("DEFAULT_PT_VOICE_ID", raising=False)
+    monkeypatch.setenv("DEFAULT_EN_VOICE_ID", "voice-en-only")
+    get_settings.cache_clear()
+
+    s = get_settings()
+    assert conversational_agent_voice_id(s) == "voice-en-only"
+    assert resolve_conversational_agent_voice_id(s) == "voice-en-only"
+
+
+def test_conversational_agent_voice_id_falls_back_to_pt_when_only_pt_set(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "xi-test-key")
+    monkeypatch.delenv("DEFAULT_AGENT_VOICE_ID", raising=False)
+    monkeypatch.delenv("DEFAULT_EN_VOICE_ID", raising=False)
+    monkeypatch.setenv("DEFAULT_PT_VOICE_ID", "voice-pt-only")
+    get_settings.cache_clear()
+
+    s = get_settings()
+    assert conversational_agent_voice_id(s) == "voice-pt-only"
+    assert resolve_conversational_agent_voice_id(s) == "voice-pt-only"
+
+
+def test_resolve_conversational_agent_voice_id_raises_when_all_missing(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "xi-test-key")
+    monkeypatch.delenv("DEFAULT_AGENT_VOICE_ID", raising=False)
+    monkeypatch.delenv("DEFAULT_PT_VOICE_ID", raising=False)
+    monkeypatch.delenv("DEFAULT_EN_VOICE_ID", raising=False)
+    get_settings.cache_clear()
+
+    s = get_settings()
+    assert conversational_agent_voice_id(s) is None
+    with pytest.raises(ValueError, match="DEFAULT_AGENT_VOICE_ID"):
+        resolve_conversational_agent_voice_id(s)

@@ -13,7 +13,7 @@ def transcribe(
     file_path: Path,
     *,
     language: str = "por",
-    model_id: str = "scribe_v1",
+    model_id: str = "scribe_v2",
     diarize: bool = True,
     tag_audio_events: bool = True,
 ) -> Transcript:

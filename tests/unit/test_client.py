@@ -1,4 +1,4 @@
-"""Unit tests for ``eleven_demo.client._with_retry``."""
+"""Unit tests for ``eleven_demo.client._with_retry`` and ``_RetryingHttpxClient``."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from eleven_demo.client import _with_retry
+from eleven_demo.client import _RetryingHttpxClient, _with_retry
 
 
 def _http_status_error(status_code: int) -> httpx.HTTPStatusError:
@@ -69,3 +69,50 @@ def test_with_retry_does_not_retry_on_client_error_400() -> None:
 
     mock_fn.assert_called_once()
     sleep_mock.assert_not_called()
+
+
+def _req() -> httpx.Request:
+    return httpx.Request("GET", "https://api.elevenlabs.io/v1/ping")
+
+
+def test_retrying_client_stream_skips_retry_wrapper() -> None:
+    client = _RetryingHttpxClient()
+    ok = httpx.Response(500, request=_req())
+
+    with patch.object(httpx.Client, "send", return_value=ok) as parent:
+        out = client.send(_req(), stream=True)
+
+    assert out is ok
+    parent.assert_called_once()
+
+
+def test_retrying_client_retries_retryable_status_then_ok() -> None:
+    client = _RetryingHttpxClient()
+    req = _req()
+    first = httpx.Response(503, request=req)
+    second = httpx.Response(200, request=req)
+    bodies: list[httpx.Response] = [first, second]
+
+    def fake_send(self: httpx.Client, request: httpx.Request, **kwargs: object) -> httpx.Response:
+        r = bodies.pop(0)
+        r.request = request
+        return r
+
+    with (
+        patch.object(httpx.Client, "send", fake_send),
+        patch("eleven_demo.client.time.sleep"),
+    ):
+        out = client.send(req)
+
+    assert out.status_code == 200
+
+
+def test_retrying_client_returns_non_retryable_error_without_retry() -> None:
+    client = _RetryingHttpxClient()
+    req = _req()
+    resp = httpx.Response(400, request=req)
+
+    with patch.object(httpx.Client, "send", return_value=resp):
+        out = client.send(req)
+
+    assert out.status_code == 400

@@ -28,6 +28,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "rich>=13.9.0",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -44,7 +45,7 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/adriannoes/eleven-labs-demo"
+Repository = "https://github.com/adriannoes/elevenlabs-agents-api-playground"
 
 [build-system]
 requires = ["hatchling"]

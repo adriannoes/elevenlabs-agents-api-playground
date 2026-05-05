@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
+from dotenv import load_dotenv
 from elevenlabs import ElevenLabs
 
 from eleven_demo.client import get_client
@@ -16,6 +17,8 @@ from eleven_demo.config import get_settings
 
 if TYPE_CHECKING:
     from pytest import FixtureRequest
+
+load_dotenv()
 
 
 def _vcr_cassette_yaml_path(request: FixtureRequest) -> Path:
