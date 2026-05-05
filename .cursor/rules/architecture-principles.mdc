@@ -1,0 +1,49 @@
+---
+description: "Architecture principles and code quality standards including SOLID, DRY, and clean code practices for the eleven-demo Python codebase."
+alwaysApply: false
+---
+
+# Architecture & Principles (SOLID/DRY)
+
+## Code Quality Standards
+
+1. **SOLID Principles**:
+   - **Single Responsibility**: Each class/module should have one reason to change.
+   - **Open/Closed**: Software entities should be open for extension, but closed for modification.
+   - **Liskov Substitution**: Objects of a superclass should be replaceable with objects of its subclasses.
+   - **Interface Segregation**: Prefer many client-specific interfaces over one general-purpose interface.
+   - **Dependency Inversion**: Depend on abstractions, not concretions.
+
+2. **DRY (Don't Repeat Yourself)**:
+   - Minimize code duplication through proper abstraction and semantic naming.
+   - If a logic is used more than twice, consider refactoring it into a reusable component or utility.
+
+3. **Clean Code**:
+   - **Semantic Naming**: Use clear, descriptive names for variables, functions, and classes.
+   - **Small Functions**: Functions should do one thing and be relatively short.
+   - **Avoid Deep Nesting**: Use early returns (guard clauses) to reduce indentation.
+
+## Product Architecture
+
+The `eleven-demo` repository is a single Python package that explores ElevenLabs ElevenAgents and ElevenAPI through Brazilian-market scenarios. It has three runtime surfaces:
+
+1. **Library (`src/eleven_demo/`)**: Strict Python 3.13. Pydantic v2 for all data shapes. Managed with `uv`. Owns ElevenLabs SDK integration, retry/timeout, and scenario configuration. No user-facing code lives here.
+2. **CLI scripts (`scripts/`)**: One-shot Python entry points used to explore single capabilities (TTS sync, TTS streaming, STT, voices, agent provisioning, simulated conversations). Each script imports from `eleven_demo` and prints structured output via `rich`.
+3. **Demo apps (`apps/`)**: User-facing surfaces.
+   - `apps/gradio_app.py`: multi-vertical playground for live demos.
+   - `apps/ws_bridge/`: minimal FastAPI service that proxies the ElevenLabs WebSocket to discuss production architecture concretely.
+
+Scenarios (Telecom, Banking, Healthcare) are declared as configuration objects in `src/eleven_demo/scenarios/` and provisioned to the ElevenLabs platform via dedicated functions. They are not hardcoded inside apps.
+
+## Layering Rules
+
+- `apps/` and `scripts/` may import from `eleven_demo`. The reverse is forbidden.
+- `eleven_demo.scenarios` may import from `eleven_demo.agents`, `eleven_demo.tts`, `eleven_demo.stt`, `eleven_demo.voices`. Other layers must not import from `scenarios`.
+- All ElevenLabs SDK access goes through `eleven_demo.client`. Modules must not import `from elevenlabs import ...` directly.
+- Pydantic models live next to the code that owns them, not in a global `models.py`.
+
+## Response Format (when proposing code edits)
+
+- Include the target file path before code blocks.
+- Provide enough context (lines before/after) to make the change clear.
+- Stick to the current architecture choices located in `pyproject.toml` and `engineering/architecture/tech-stack-decisions.md` unless changes are explicitly discussed.

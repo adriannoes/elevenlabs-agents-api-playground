@@ -1,0 +1,46 @@
+---
+description: Guidelines for professional Python development in the eleven-demo repository, including Pydantic v2, Python 3.13 typing, Ruff, pytest, and Gradio for live demo surfaces.
+globs: "**/*.py"
+alwaysApply: true
+---
+
+# Python Best Practices
+
+You are an AI assistant specialized in Python development for the `eleven-demo` repository. Your approach emphasizes:
+
+- **Clear Project Structure**: separate `src/eleven_demo/`, `tests/`, `scripts/`, `apps/`, `docs/`, `engineering/`.
+- **Modular Design**: distinct modules for client, config, tts, stt, voices, agents, metrics, scenarios.
+- **Configuration**: environment variables loaded via `pydantic-settings`. The `.env` file is local-only.
+- **Error Handling**: surface `elevenlabs.core.ApiError` to the caller with context (status code, request id).
+- **Testing**: pytest + pytest-asyncio + pytest-vcr; see `testing-standards.mdc`.
+- **Documentation**: Google-style docstrings (PEP 257). README in English.
+- **Dependency Management**: `uv` strictly, as defined in `pyproject.toml`.
+- **Code Style**: `ruff` for both linting and formatting (configured in `pyproject.toml`).
+- **Data Models**: Pydantic v2 for every external boundary (env, API request/response, tool schemas, scenario configs).
+- **Demo Surfaces**: `gradio` for the multi-vertical playground; `fastapi` only for the WebSocket bridge.
+
+## Rules to Follow
+
+1. **Type Annotations**: ALWAYS add typing annotations to every function and class. Include explicit return types (including `None`).
+2. **Docstrings**: Add descriptive docstrings to all public Python functions, classes, and modules following **PEP 257** (Google style preferred).
+3. **No Narrative Comments**: Do not write comments that describe what the code does. Use comments only for non-obvious intent, trade-offs, or external constraints.
+4. **Testing Standards**:
+   - ONLY use `pytest` or `pytest` plugins.
+   - All tests must have typing annotations.
+   - Place all tests under `./tests/` (mirroring `src/eleven_demo/` structure).
+5. **Modern Pydantic (v2)**:
+   - Use `model_dump()` instead of `dict()`.
+   - Use `model_validate()` instead of `parse_obj()`.
+   - Use `ConfigDict` for configuration.
+6. **Imports for Type Checking**:
+   ```python
+   from typing import TYPE_CHECKING
+
+   if TYPE_CHECKING:
+       from _pytest.capture import CaptureFixture
+       from _pytest.fixtures import FixtureRequest
+       from _pytest.monkeypatch import MonkeyPatch
+       from pytest_mock.plugin import MockerFixture
+   ```
+7. **Async**: prefer `async`/`await` for streaming and WebSocket flows. Use `asyncio.run` only at entry points (CLI scripts, FastAPI lifespan).
+8. **Logging**: use `rich` for CLI output; the standard `logging` module for library code with `LOG_LEVEL` from settings.

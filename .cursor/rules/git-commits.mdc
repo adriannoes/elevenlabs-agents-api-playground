@@ -1,0 +1,72 @@
+---
+description: "Apply when generating git commit messages, performing commits, pushing to remote, or suggesting commit-related changes. Enforces Conventional Commits format and pre-push CI verification."
+alwaysApply: true
+---
+
+# Git Conventional Commits
+
+Use the [Conventional Commits](https://www.conventionalcommits.org/) specification to generate commit messages.
+
+## Format
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+## Commit Types
+- **feat**: A new feature (correlates with MINOR in SemVer).
+- **fix**: A bug fix (correlates with PATCH in SemVer).
+- **docs**: Documentation only changes.
+- **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc.).
+- **refactor**: A code change that neither fixes a bug nor adds a feature.
+- **perf**: A code change that improves performance.
+- **test**: Adding missing tests or correcting existing tests.
+- **build**: Changes that affect the build system or external dependencies.
+- **ci**: Changes to CI configuration files and scripts.
+- **chore**: Other changes that don't modify src or test files.
+
+## Rules
+1. **Breaking Changes**: Must be indicated by a `!` after the type/scope OR by `BREAKING CHANGE:` in the footer.
+2. **Case Sensitivity**: Types must be lowercase (except `BREAKING CHANGE` in footers).
+3. **Description**: Short, imperative summary of the change.
+4. **Body**: Longer description of "what" and "why" (not "how").
+5. **Footers**: Used for tracking issues (e.g., `Refs: #123`) or breaking changes.
+
+## Atomic Commits
+
+Each commit should represent **one logical change**. Avoid mixing refactors, features, and formatting in the same commit. Soft target: at most ~300 changed lines per commit.
+
+## Pre-Push CI Verification
+
+Before pushing, run the same checks the CI would:
+
+1. **Linting**: `uv run ruff check .`
+2. **Formatting**: `uv run ruff format --check .` (or `uv run ruff format .` to auto-fix)
+3. **Type checking** (optional, slower): `uv run mypy src/`
+4. **Unit tests**: `uv run pytest -n auto -m "not integration"`
+5. **Integration tests** (only when `ELEVENLABS_API_KEY` is set or VCR cassettes exist): `uv run pytest -m integration`
+
+**Quick fixes**:
+- `uv run ruff check --fix .` (auto-fix lints)
+- `uv run ruff format .` (auto-format)
+
+All checks must pass before pushing.
+
+## Examples
+
+```
+feat(agents): add server tools for telecom scenario
+
+Implements lookup_telecom_account and transfer_to_human server tools
+with Pydantic schemas and mock data for the SAC use case.
+```
+
+```
+chore(rules): realign cursor rules with python+gradio stack
+
+Removes references to Next.js and the asap-protocol codebase.
+Adds elevenlabs-conventions rule for project-wide ElevenLabs SDK usage.
+```

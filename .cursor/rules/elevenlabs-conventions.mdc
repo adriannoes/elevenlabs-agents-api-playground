@@ -1,0 +1,103 @@
+---
+description: "Project-wide conventions for using the ElevenLabs Python SDK in the eleven-demo codebase. Apply when writing or reviewing any code that calls the ElevenLabs API."
+globs:
+  - "src/eleven_demo/**/*.py"
+  - "scripts/**/*.py"
+  - "apps/**/*.py"
+alwaysApply: true
+---
+
+# ElevenLabs SDK Conventions
+
+These conventions apply to every module that talks to ElevenLabs. They exist to keep behavior predictable across TTS, STT, Voices, Agents, and WebSocket flows.
+
+## 1. One Client Factory
+
+All SDK access goes through `eleven_demo.client.get_client()`. Modules MUST NOT call `ElevenLabs(api_key=...)` directly.
+
+```python
+from eleven_demo.client import get_client
+
+client = get_client()
+```
+
+## 2. Always Pass `model_id` and `output_format` Explicitly
+
+Defaults can change between SDK versions. Be explicit so demos remain reproducible.
+
+```python
+audio = client.text_to_speech.convert(
+    voice_id=voice_id,
+    text=text,
+    model_id="eleven_flash_v2_5",
+    output_format="mp3_22050_32",
+)
+```
+
+The current model lineup must be confirmed via the `elevenlabs-docs` skill or `https://elevenlabs.io/docs/overview/models`.
+
+## 3. Capture Cost via `with_raw_response`
+
+Whenever a TTS call is part of a billable demo path, capture `x-character-count` and `request-id` for traceability:
+
+```python
+resp = client.text_to_speech.with_raw_response.convert(
+    voice_id=voice_id,
+    text=text,
+    model_id="eleven_flash_v2_5",
+)
+characters = int(resp.headers.get("x-character-count", "0"))
+request_id = resp.headers.get("request-id", "")
+```
+
+## 4. Voice Settings Defaults for PT-BR
+
+Brazilian Portuguese benefits from speaker boost and slightly lower stability:
+
+```python
+voice_settings = {
+    "stability": 0.4,
+    "similarity_boost": 0.85,
+    "style": 0.4,
+    "use_speaker_boost": True,
+}
+```
+
+Override only when a scenario has a different requirement (and document why).
+
+## 5. Retry Policy
+
+`get_client()` returns a wrapper that retries up to 3 times with exponential backoff (1s, 2s, 4s) on HTTP 429 and 5xx. Do not add ad-hoc retry loops in callers.
+
+## 6. Async Boundaries
+
+- Use `client.X.Y(...)` (sync) for one-shot scripts and unit tests.
+- Use `async with websockets.connect(...)` for streaming TTS / STT / Agents conversation. Never block the event loop with sync SDK calls.
+
+## 7. Error Handling
+
+Catch `elevenlabs.core.ApiError` (not bare `Exception`). Surface `e.status_code` and `e.body` to the caller:
+
+```python
+from elevenlabs.core import ApiError
+
+try:
+    audio = client.text_to_speech.convert(...)
+except ApiError as exc:
+    raise RuntimeError(f"TTS failed: {exc.status_code} {exc.body}") from exc
+```
+
+## 8. Agent Provisioning is Idempotent
+
+`scenario.provision()` must look up an existing agent by `name` before creating a new one, and update in place when found. This keeps demo runs from polluting the workspace with duplicates.
+
+## 9. WebSocket Headers
+
+Authenticate WebSocket connections via the `xi-api-key` header (not query string), and always close the connection in a `finally` block.
+
+## 10. Anti-Patterns
+
+- Hardcoding `voice_id` strings throughout the codebase. Centralize in `eleven_demo.config.Settings` and per-scenario configs.
+- Calling `time.sleep(...)` inside a streaming loop. Use the chunk arrival as the natural pacing.
+- Logging full audio bytes (`logger.info(audio)`). Log byte count and TTFB instead.
+- Letting `requests.exceptions.RequestException` leak — wrap or convert.

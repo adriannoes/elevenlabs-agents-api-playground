@@ -1,0 +1,92 @@
+---
+description: "Testing standards for pytest, fixtures, async patterns, VCR cassettes, and test organization. Apply when writing or reviewing tests in the eleven-demo repository."
+globs:
+  - "tests/**/*.py"
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/conftest.py"
+alwaysApply: false
+---
+
+# Testing Standards (Pytest + UV)
+
+## 1. Tooling & Environment
+
+- **Runner**: Always use `uv run pytest`.
+- **Async**: `pytest-asyncio` with `asyncio_mode = "auto"` (set in `pyproject.toml`).
+- **Parallelism**: `pytest-xdist` (`-n auto`) for unit tests. Disable for integration runs that record VCR cassettes.
+
+## 2. Directory Structure
+
+- **Unit**: `tests/unit/` — pure logic, no network. Mirror `src/eleven_demo/` layout.
+- **Integration**: `tests/integration/` — exercise the ElevenLabs API. Use VCR cassettes to make CI deterministic.
+- **Fixtures**: shared in `tests/conftest.py` (top-level) and per-package `conftest.py` when needed.
+
+## 3. Markers
+
+- `@pytest.mark.integration` — test hits the live API or replays a VCR cassette. The autouse fixture in `tests/conftest.py` skips these when `ELEVENLABS_API_KEY` is missing AND no cassette is on disk.
+- `@pytest.mark.slow` — test takes more than 1s. Excluded from the default fast loop.
+
+## 4. VCR Cassettes Pattern
+
+Integration tests must record once with a real key and replay forever in CI:
+
+```python
+import pytest
+from eleven_demo.client import get_client
+
+@pytest.mark.integration
+@pytest.mark.vcr(
+    filter_headers=["xi-api-key", "authorization"],
+    record_mode="once",
+)
+def test_list_voices_pt_br() -> None:
+    client = get_client()
+    voices = client.voices.search(page_size=5)
+    assert len(voices.voices) > 0
+```
+
+Cassettes live at `tests/integration/cassettes/<test_module>/<test_name>.yaml`. Always strip `xi-api-key`, `authorization`, and any `set-cookie` headers before committing a cassette.
+
+## 5. Typing
+
+All tests must have type hints. For pytest fixtures, use `TYPE_CHECKING` imports:
+
+```python
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from _pytest.capture import CaptureFixture
+    from _pytest.monkeypatch import MonkeyPatch
+    from pytest_mock.plugin import MockerFixture
+```
+
+## 6. Async Tests
+
+```python
+import pytest
+
+pytestmark = pytest.mark.asyncio
+
+async def test_ws_stream_yields_audio() -> None:
+    ...
+```
+
+Never use `time.sleep()`. Use `asyncio.sleep()` or `pytest-asyncio` event loop control.
+
+## 7. Anti-Patterns
+
+- Hitting the live API in unit tests (use mocks or VCR).
+- Asserting on exact byte sizes (audio output varies). Assert on shape and order.
+- Sleeping to wait for an event. Use awaitable primitives.
+- Sharing mutable state across tests. Always use fixtures with proper teardown.
+
+## 8. Coverage
+
+Coverage runs in a single dedicated invocation (no xdist):
+
+```bash
+uv run pytest --cov=src/eleven_demo --cov-report=xml --cov-report=term -m "not integration"
+```
+
+The fast loop (`-n auto -m "not integration"`) is the default for development.

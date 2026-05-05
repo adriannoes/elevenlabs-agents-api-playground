@@ -1,0 +1,54 @@
+---
+description: "Security standards for code quality, secret management, and input validation in the eleven-demo Python codebase."
+globs:
+  - "**/*.py"
+alwaysApply: true
+---
+
+# Security Standards
+
+## 1. Secrets Management
+
+- **NO Hardcoded Secrets**: Never commit API keys, tokens, or passwords.
+- **Detection**: Patterns like `sk-`, `xi-`, `ghp_`, `eyJ` (JWT) are strictly forbidden in code.
+- **Env Vars**: Use `os.environ` or, preferably, `pydantic_settings.BaseSettings` for typed access.
+- **Files**: Treat `.env` as sensitive. It is in `.gitignore`. Only `.env.example` is committed (with empty values).
+- **Pre-commit**: `gitleaks` and `detect-private-key` run on every commit (see `.pre-commit-config.yaml`).
+
+## 2. Input Validation (Zero Trust)
+
+- **Trust No Input**: validate every payload from the network, environment, file, or user.
+- **Pydantic v2** for all ingress data. Forbid extra fields where appropriate:
+  ```python
+  from pydantic import BaseModel, ConfigDict
+  from uuid import UUID
+
+  class TelecomLookupRequest(BaseModel):
+      cpf: str
+      account_id: UUID
+
+      model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+  ```
+
+## 3. Dependency Security
+
+- **Lock Files**: Always commit `uv.lock`.
+- **Audit**: Run `uv pip list --outdated` periodically and review CVEs before bumping.
+- **Pin only when needed**: prefer compatible-release ranges (`>=2.0,<3.0`) over hard pins, except for security-sensitive deps.
+
+## 4. Output Encoding & Logging
+
+- **No Secrets in Logs**: never log the raw `xi-api-key`, `voice_id` clones from real customers, or PII from conversations.
+- **Redact**: when capturing conversation transcripts for debugging, run them through a redaction step (regex for CPF, card numbers, emails, phone numbers).
+
+## 5. ElevenLabs-Specific Hardening
+
+- **API Key Scope**: prefer scoped service-account keys for production-style demos; use the personal key only for local exploration.
+- **Voice Cloning**: never clone a real person's voice without explicit consent. For demos, use synthetic Voice Design or voices from the public Voice Library.
+- **Webhook Signatures**: when implementing post-call webhooks, verify the ElevenLabs signature header before trusting the payload.
+- **Zero Retention Mode (ZRM)**: for any scenario that touches PII (Banking, Healthcare), enable ZRM at the agent level and document it in the scenario's docstring.
+
+## 6. AuthN & AuthZ in Demos
+
+- **Least Privilege**: server tools that mock external systems must not echo unredacted PII back to the conversation transcript.
+- **Signed URLs**: when embedding the agent widget in a private app (e.g. Gradio), use `client.conversations.get_signed_url()` instead of exposing the agent_id publicly.
