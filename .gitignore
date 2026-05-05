@@ -34,9 +34,14 @@ coverage.xml
 dmypy.json
 
 # IDE / OS
-.cursor/
 .vscode/
 .idea/
+
+# Cursor
+.cursor/cache/
+.cursor/index/
+.cursor/mcp.json
+.cursor/.last_*
 *.swp
 *.swo
 .DS_Store
@@ -78,3 +83,14 @@ data/transcripts/
 # Generated evidence artifacts (regenerate locally from documented commands)
 artifacts/reports/
 artifacts/benchmarks/
+
+# Local-only prep materials (not for public repo)
+/prep/
+
+# apps/web (Node)
+apps/web/node_modules/
+apps/web/.next/
+apps/web/.env.local
+apps/web/.vercel/
+apps/web/.turbo/
+apps/web/next-env.d.ts

@@ -27,13 +27,35 @@ This document records the approved technology choices for the `eleven-demo` repo
 
 ## Decision details and rejected alternatives
 
-### UI framework: Gradio (chosen) vs Streamlit vs Next.js
+### UI framework: Gradio (primary) + minimal Next.js reference surface (stretch)
 
-- **Gradio**: ~30 lines for a working multi-tab demo with audio in/out. ElevenLabs ships Gradio examples in their docs.
-- **Streamlit**: equally fast for dashboards, weaker on audio I/O, harder to embed external widgets like the ElevenLabs JS SDK.
-- **Next.js**: best polish, but adds a TypeScript codebase, build step, and ~10x more setup cost. Out of scope for a hands-on exploration repo.
+- **Gradio (primary)**: ~30 lines for a working multi-tab demo with audio in/out. ElevenLabs ships Gradio examples in their docs. This is the surface that exercises every vertical (TTS Playground, three agents, latency, vendor benchmark) end-to-end against the live platform.
+- **Streamlit (rejected)**: equally fast for dashboards, weaker on audio I/O, harder to embed external widgets like the ElevenLabs JS SDK.
+- **Next.js as full replacement (rejected)**: best polish, but adds a TypeScript codebase, build step, and ~10x more setup cost. Out of scope as the *primary* exploration surface.
+- **Next.js as small reference surface (accepted, stretch — Task 6.7)**: a single page under `apps/web/` using the official [`elevenlabs/ui`](https://github.com/elevenlabs/ui) registry (`Orb`, `ConversationBar`, `LiveWaveform`) wired to `DEMO_AGENT_ID_TELECOM` via `@elevenlabs/react`. Same agent that the Python `scripts/agent_create.py telecom` provisions. Signed URLs are minted by `app/api/signed-url/route.ts` with `@elevenlabs/elevenlabs-js`, keeping API keys server-side without rewriting the Python exploration in TypeScript.
 
-**Rejected alternatives**: Streamlit, Next.js, Reflex.
+Demo-local UI tokens and brand guardrails: [`docs/design/visual-system.md`](../../docs/design/visual-system.md).
+Official logo/symbol files (when committed): **`docs/design/assets/logos/`** and **`docs/design/assets/symbols/`**.
+
+### Multi-stack by design (Python primary, Node-only secondary surface)
+
+- **Primary surface**: Python (uv, Gradio). Covers exploration, CLIs, scenarios, KB / RAG, benchmarks, and integration tests with VCR cassettes.
+- **Secondary surface (stretch)**: Node 20+ / pnpm under `apps/web/`, fully isolated. Exists only to exercise the official `elevenlabs/ui` registry on top of the same agent provisioned by Python.
+- **Toolchain isolation**: `apps/web/` ships its own `package.json`, `pnpm-lock.yaml`, and `node_modules/`. It does **not** appear in `pyproject.toml`, `uv.lock`, the Python pre-commit hooks, or the Python quality gates in Task 8.0. Lint / build of the Node surface is verified manually by the developer; failures there do not block the Python release run.
+- **Shared contract**: the Node surface and the Python surface share **only environment variable names** (`ELEVENLABS_API_KEY`, `DEMO_AGENT_ID_TELECOM`). They do not share code, schemas, or runtime processes.
+
+### `elevenlabs/ui` evaluation
+
+- **Source**: <https://github.com/elevenlabs/ui> — a custom shadcn/ui registry maintained by the ElevenLabs team for React / Next.js applications.
+- **Components considered**: `orb`, `conversation`, `conversation-bar`, `message`, `transcript-viewer`, `live-waveform`, `waveform`, `voice-button`, `voice-picker`, `mic-selector`, `audio-player`, `scrub-bar`, `speech-input`, `response`, `shimmering-text`, `bar-visualizer`, `matrix`.
+- **Shipped dependencies**: `@elevenlabs/react`, `@elevenlabs/elevenlabs-js`, `three`, `@react-three/fiber`, `@react-three/drei`, `lucide-react`, shadcn/ui, Tailwind CSS, Next.js 14, Node 20+. `framer-motion` was considered through the registry ecosystem but is not currently required by the shipped page.
+- **Decision**: adopt as a stretch reference surface (Task 6.7) rather than as a replacement for the Python lab. Rationale:
+  - The registry covers the *front-end* of an agent-driven product. It does not provision agents, upload knowledge bases, compute RAG, run TTFB benchmarks, or back integration tests with cassettes — all of which remain Python-first via the official `elevenlabs-python` SDK.
+  - Migrating the existing Python work to TypeScript would discard the breadth of platform coverage already shipped (Tasks 1.0–6.1) for little gain beyond a single conversation UI.
+  - Using `elevenlabs/ui` for one focused page documents a typical customer Next.js integration while keeping the rest of the exploration Python-first.
+- **Documentation flow**: the registry is referenced from `apps/web/README.md`, cross-linked from `docs/walkthrough.md` (Task 7.4), captured in `docs/reports/technical-exploration-report.md` (Task 7.8), and may be summarized in optional learning notes or Task 7.9.
+
+**Rejected alternatives** (UI tier): Streamlit, Reflex, full Next.js port of every Gradio tab.
 
 ### Package manager: uv (chosen) vs pip vs Poetry
 
@@ -72,18 +94,19 @@ The `eleven_demo.client` module exposes both surfaces from the same factory.
 
 ### Post-call analysis without an HTTP webhook receiver
 
-- **Chosen**: Operational exploration uses `client.conversations.list` / conversation retrieval from a small CLI (`scripts/conversations_list.py`) when needed; analysis fields align with [Agent analysis](https://elevenlabs.io/docs/eleven-agents/customization/agent-analysis) documentation.
-- **Rejected for this repo**: Running a dedicated HTTP endpoint for [post-call webhooks](https://elevenlabs.io/docs/eleven-agents/workflows/post-call-webhooks) — adds deployment surface (TLS, signature verification, uptime) beyond the demo scope while providing marginal benefit for local exploration.
+- **Chosen**: Operational exploration uses `get_client().conversational_ai.conversations.list` / `get` through `scripts/conversations_list.py` when needed. The CLI prints redacted conversation IDs, status, success, duration, message counts, and analysis summaries so local demos can inspect recent calls without storing raw transcripts in repo artifacts.
+- **Rejected for this repo**: Running a dedicated HTTP endpoint for [post-call webhooks](https://elevenlabs.io/docs/eleven-agents/workflows/post-call-webhooks) — adds deployment surface (TLS, signature verification, uptime, signature validation, and PII redaction) beyond the demo scope while providing marginal benefit for local exploration.
 
-Document webhook flows in narrative docs so production integrations remain discussable without implementing them here.
+Document webhook flows in narrative docs so production integrations remain discussable without implementing them here. If a production-style system needs durable call records, build a separate authenticated webhook receiver with signature verification and redaction instead of extending this local lab.
 
 ## Out of scope (explicit non-goals)
 
-- TypeScript / Next.js / React frontends.
+- TypeScript / Next.js / React as the **primary** exploration surface. A small reference surface under `apps/web/` (Task 6.7) using the official `elevenlabs/ui` registry is allowed and desirable.
 - Mobile (iOS / Android / React Native).
 - Real telephony (Twilio / SIP / Plivo / Vonage). The Gradio app simulates the conversation surface; integration is documented but not wired.
 - Voice biometrics. Mentioned as a talking point for Banking, not implemented.
 - Multi-tenant production deployment. Single-developer local exploration.
+- Running Node lint / test / build inside the Python pre-commit or quality gates. Toolchains stay isolated.
 
 ## Update process
 

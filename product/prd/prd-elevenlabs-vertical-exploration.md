@@ -6,7 +6,9 @@
 **Related documents**:
 - [README.md](../../README.md)
 - [engineering/architecture/tech-stack-decisions.md](../../engineering/architecture/tech-stack-decisions.md)
-- [engineering/tasks/tasks-prd-elevenlabs-vertical-exploration.md](../../engineering/tasks/tasks-prd-elevenlabs-vertical-exploration.md)
+- [engineering/tasks/tasks-prd-elevenlabs-vertical-exploration.md](../../engineering/tasks/tasks-prd-elevenlabs-vertical-exploration.md) — post-delivery summary and verification pointers (canonical task checklist).
+- **`docs/design/assets/logos/`**, **`docs/design/assets/symbols/`** — Checked-in official SVG/PNG from [elevenlabs.io/brand](https://elevenlabs.io/brand); placement and guardrails in [docs/design/visual-system.md](../../docs/design/visual-system.md).
+- [Demo agent setup (Portuguese)](../guides/demo-agent-setup.md) — provisioning via API and `DEMO_AGENT_ID_*` variables.
 
 ## 1. Introduction / Overview
 
@@ -21,11 +23,11 @@ The repository is structured so that each capability (TTS, STT, voices, agents, 
 3. **Add a focused vendor benchmark for TTS latency**: compare ElevenLabs Flash v2.5 streaming against OpenAI `gpt-4o-mini-tts` streaming for short PT-BR customer-service utterances, using TTFB as the primary metric and total generation time as a secondary metric.
 4. **Keep engineering discipline tight**: every change is an atomic Conventional Commit, every module has unit tests, integration tests use VCR cassettes for deterministic CI, ruff and pre-commit hooks gate everything.
 5. **Make every architectural decision explicit and revisitable**: PRD, tech-stack ADR, scenario docs, benchmark docs, and skills are first-class artifacts, not afterthoughts.
-6. **Demonstrate AI-augmented engineering productivity**: complete the exploration in a 3-day sprint by combining the official Python SDK, the `elevenlabs-docs` / `elevenlabs-agents` / `elevenlabs-api-cookbook` skills, and rigorous task decomposition.
+6. **Use the official SDK and project skills intentionally**: rely on `elevenlabs-docs`, `elevenlabs-agents`, and `elevenlabs-api-cookbook`, plus the task decomposition in `engineering/tasks/`, so each step stays traceable to docs and repeatable.
 
 ## 3. User Stories
 
-The "user" of this repository is the developer building it — me — but the artifacts are written so a teammate could pick them up.
+The primary audience is a developer cloning the repo to learn ElevenLabs; the docs are structured so collaborators can onboard without tribal context.
 
 - **As a developer exploring the ElevenLabs platform**, I want a single command that opens a multi-tab UI showing TTS, three voice agents, and a live latency benchmark, so I can probe the platform interactively without writing UI code.
 - **As a developer comparing TTS models**, I want a CLI that runs N TTS Flash and N TTS Multilingual calls and prints a TTFB table with median and p95, so I can build evidence-based intuition about latency budgets.
@@ -76,7 +78,8 @@ The "user" of this repository is the developer building it — me — but the ar
 - **FR-21**: `apps/gradio_app.py` exposes six tabs: TTS Playground, Telecom, Banking, Healthcare, Latency, Vendor Benchmark. Each agent tab uses a signed URL to embed the official ElevenLabs voice widget. The TTS Playground uses `gr.Audio(autoplay=True)` per §6.1. Agent tabs rely on the embedded widget for conversation UI; server-tool traces are visible via ElevenLabs dashboard / post-call analysis workflows ([Agent Testing](https://elevenlabs.io/docs/eleven-agents/customization/agent-testing)), not as a separate Gradio-native trace viewer unless explicitly added later.
 - **FR-22**: The Latency tab runs 10 streaming TTS calls (Flash by default) and shows a live TTFB chart and a summary table.
 - **FR-22a**: The Vendor Benchmark tab runs the same benchmark as `scripts/tts_vendor_benchmark.py` when `OPENAI_API_KEY` is present; otherwise it shows setup instructions and keeps the rest of the app usable.
-- **FR-23 (stretch)**: `apps/ws_bridge/main.py` is a FastAPI service with `/ws/tts` (proxy to ElevenLabs TTS WebSocket) and `/healthz`. Intended for **local development only**: no authentication on `/ws/tts`; production deployments must add auth, TLS, and rate limiting — never expose this bridge directly to the public internet as-is.
+- **FR-23 (stretch — first to descope if time runs short)**: `apps/ws_bridge/main.py` is a FastAPI service with `/ws/tts` (proxy to ElevenLabs TTS WebSocket) and `/healthz`. Intended for **local development only**: no authentication on `/ws/tts`; production deployments must add auth, TLS, and rate limiting — never expose this bridge directly to the public internet as-is.
+- **FR-23a (stretch — priority over FR-23)**: `apps/web/` is a minimal Next.js 14 (App Router) application that uses the official [`elevenlabs/ui`](https://github.com/elevenlabs/ui) registry to render `Orb`, `ConversationBar`, and `LiveWaveform` connected to `DEMO_AGENT_ID_TELECOM` via the `useConversation` hook from `@elevenlabs/react`. Signed URLs are minted server-side in `app/api/signed-url/route.ts` so the raw `ELEVENLABS_API_KEY` never reaches the browser. The Node toolchain (pnpm, `node_modules/`, `.next/`) lives entirely under `apps/web/` and does not affect Python tooling. Same agent provisioned by `scripts/agent_create.py telecom` powers both this React surface and the Gradio Telecom tab — the two surfaces interoperate through a shared `agent_id`, not shared code.
 
 ### 4.4 Tests — `tests/`
 
@@ -90,12 +93,14 @@ The "user" of this repository is the developer building it — me — but the ar
 - **FR-28**: `ruff` lints and formats; pre-commit runs ruff + gitleaks + detect-private-key on every commit.
 - **FR-29**: `README.md` covers architecture, three verticals, tech-stack trade-offs, demo map, project structure, and a setup that completes in under five minutes.
 - **FR-30**: Every scenario has a storytelling document under `docs/scenarios/` (persona, problem, demo flow, ROI hypothesis, talking points, risks).
-- **FR-36**: `docs/reports/technical-exploration-report.md` summarizes the exploration as a readable technical-strategy report: executive summary, architecture, demo portfolio, benchmark results, testing evidence, product insights, risks, and next steps.
+- **FR-36**: `docs/reports/technical-exploration-report.md` summarizes the exploration as a readable technical report: executive summary, architecture, demo portfolio, benchmark results, testing evidence, product insights, risks, and next steps.
 - **FR-37**: Release-quality commands generate evidence artifacts under `artifacts/reports/`: `pytest.xml`, coverage terminal output / XML / HTML, pre-commit output, and the latest vendor benchmark JSON. These artifacts support the report but must not contain secrets or raw PII.
 
 ## 5. Non-Goals (Out of Scope)
 
-- TypeScript / Next.js / React frontends.
+- TypeScript / Next.js / React as the **primary** exploration surface. A small reference surface under `apps/web/` (FR-23a, Task 6.7) using the official [`elevenlabs/ui`](https://github.com/elevenlabs/ui) registry is allowed and desirable as a stretch deliverable — it complements (does not replace) the Gradio app.
+- Re-implementing scenarios, knowledge base, RAG, benchmarks, or integration tests in TypeScript. The `apps/web/` surface consumes a single Python-provisioned agent and renders one conversation page; provisioning and platform CRUD remain Python-first.
+- Running Node lint / test / build inside the Python pre-commit, the Python quality gates (Task 8.0), or the Python coverage target. The two toolchains coexist but stay isolated.
 - Mobile applications (iOS / Android / React Native).
 - Real telephony integration (Twilio / SIP / Plivo / Vonage). The Gradio app is the simulated conversation surface.
 - Blanket vendor-ranking claims. The benchmark is scoped to short PT-BR streaming TTS from the developer's local environment and must report measured results transparently.
@@ -108,7 +113,14 @@ The "user" of this repository is the developer building it — me — but the ar
 
 ### 6.1 Gradio aesthetic
 
-- Default Soft theme. No custom CSS unless absolutely necessary.
+- Default Soft theme with light custom CSS allowed when it improves demo clarity.
+- Visual direction is inspired by the official ElevenLabs brand system, but the app must not look like an official ElevenLabs product unless brand assets are used exactly as permitted by the [brand guidelines](https://elevenlabs.io/brand).
+- Local UI tokens, component patterns, and brand-usage guardrails are documented in [docs/design/visual-system.md](../../docs/design/visual-system.md). These are demo-local tokens, not official ElevenLabs design tokens.
+- Official logo/symbol files (when used) live under **`docs/design/assets/logos/`** or **`docs/design/assets/symbols/`**, not recreated in CSS or custom SVG.
+- Use correct platform names in UI copy: **ElevenAgents** and **ElevenAPI**.
+- For the voice-agent tabs, lean into the ElevenAgents visual language: blue accents, soft gradients, circular / orb-like status elements, and generous whitespace.
+- For API / benchmark tabs, lean into the ElevenAPI visual language: monochrome / neutral palette, crisp tables, kinetic-metric feel, and minimal decoration.
+- Do not recreate, distort, recolor, rotate, add effects to, or approximate ElevenLabs logos / symbols. If a logo is used, keep required clearance and use official assets only.
 - Each tab has a left panel (controls) and a right panel (output + context). The right panel includes a small "Why this matters" callout per scenario.
 - Audio output uses `gr.Audio(autoplay=True)` for instant feedback.
 - Latency tab uses `gr.LinePlot` for the live TTFB series.
@@ -123,7 +135,7 @@ The "user" of this repository is the developer building it — me — but the ar
 
 - The primary human-readable artifact is `docs/reports/technical-exploration-report.md`.
 - Generated machine-readable evidence lives under `artifacts/reports/` and `artifacts/benchmarks/`.
-- The report must be written in English and framed as a product/engineering exploration, not as a one-off presentation artifact.
+- The report must be written in English and framed as a product/engineering exploration of the APIs—not as marketing copy or a superficial vendor pitch.
 - Metrics are summarized with caveats; raw benchmark numbers are preserved instead of cherry-picked.
 
 ## 7. Technical Considerations
@@ -131,7 +143,7 @@ The "user" of this repository is the developer building it — me — but the ar
 - **Approved stack**: see [engineering/architecture/tech-stack-decisions.md](../../engineering/architecture/tech-stack-decisions.md).
 - **Cursor skills**: the assistant uses `[elevenlabs-docs](../../.cursor/skills/elevenlabs-docs/SKILL.md)`, `[elevenlabs-agents](../../.cursor/skills/elevenlabs-agents/SKILL.md)`, `[elevenlabs-api-cookbook](../../.cursor/skills/elevenlabs-api-cookbook/SKILL.md)` to fetch authoritative ElevenLabs context.
 - **Cursor rules**: project-wide rules in `.cursor/rules/` enforce SOLID, Python style, security, testing, commits, and ElevenLabs SDK conventions.
-- **Model selection**: defaults pinned in `.env.example` (`eleven_flash_v2_5` for TTS, `mp3_22050_32` for output, `scribe_v1` for batch STT, `scribe_v2_realtime` for realtime STT per [Models](https://elevenlabs.io/docs/overview/models)). Per-call overrides allowed.
+- **Model selection**: defaults pinned in `.env.example` (`eleven_flash_v2_5` for TTS, `mp3_22050_32` for output, `scribe_v2` for batch STT, `scribe_v2_realtime` for realtime STT per [Models](https://elevenlabs.io/docs/overview/models)). Per-call overrides allowed.
 - **Vendor benchmark design**: the primary benchmark compares ElevenLabs `eleven_flash_v2_5` streaming (`mp3_22050_32`) against OpenAI `gpt-4o-mini-tts` streaming (`response_format="mp3"`) on the same short PT-BR customer-service utterances. This deliberately targets the interactive voice-agent path where ElevenLabs Flash is designed to perform well ([Models](https://elevenlabs.io/docs/overview/models), [Latency optimization](https://elevenlabs.io/docs/eleven-api/guides/how-to/best-practices/latency-optimization)). OpenAI `pcm` may be included as a secondary fastest-path control, documented separately so the headline comparison remains readable.
 - **Benchmark caveat**: TTFB depends on local network, routing, provider region, output format, model load, and voice selection. The repo should show raw data, environment notes, and rerun instructions rather than hard-coding a winner.
 - **Compliance posture**: scenarios that touch PII (Banking, Healthcare) must enable Zero Retention Mode and document the choice in their docstring.
@@ -139,6 +151,8 @@ The "user" of this repository is the developer building it — me — but the ar
 - **Idempotency**: `scenario.provision()` must update an existing agent in place when one matches by name.
 - **Cost control**: integration tests record VCR cassettes once; CI replays them. Live API access is limited to local development and recording sessions.
 - **Reportability**: every final verification command should either update a reportable artifact (`pytest.xml`, coverage, benchmark JSON) or be referenced in the final technical report. Generated artifacts must redact API keys, authorization headers, request payloads containing PII, and any local-only secrets.
+- **Reference UI registry**: [`elevenlabs/ui`](https://github.com/elevenlabs/ui); Gradio aligns with its conversation state semantics in `docs/design/visual-system.md`. `apps/web/` (FR-23a) adds a minimal Next.js + signed-URL example. Details: [`elevenlabs/ui` evaluation](../../engineering/architecture/tech-stack-decisions.md#elevenlabsui-evaluation) in tech-stack-decisions.
+- **Multi-stack isolation**: the Node toolchain for `apps/web/` is fully scoped to that directory (`package.json`, `pnpm-lock.yaml`, `node_modules/`, `.next/`). It must not leak into `pyproject.toml`, `uv.lock`, `.pre-commit-config.yaml`, or the quality-gate commands in PRD §Success Metrics.
 
 ## 8. Success Metrics
 
@@ -161,7 +175,8 @@ The exploration is complete when all of the following are true:
 
 1. Which Voice Library voices should be the defaults for `DEFAULT_PT_VOICE_ID` and `DEFAULT_EN_VOICE_ID`? To be picked when running task **3.6** (`scripts/voices_pt_br.py`) after Task 3 ships.
 2. Should the Banking scenario include an English-speaking sub-flow (for foreign customers) to also exercise multilingual switching? Default: no, keep it PT-BR only and document multilingual as a follow-up.
-3. Should the FastAPI WebSocket bridge be part of the scope or treated as a stretch goal? Current decision: stretch goal, drops first if Sprint 3 runs over.
+3. Should the FastAPI WebSocket bridge be part of the scope or treated as a stretch goal? Current decision: stretch goal; descope first if time runs short.
 4. Should the post-call webhook receiver be implemented? Current decision: **no** — use `client.conversations.list` / conversation retrieval from a small script (`scripts/conversations_list.py` or equivalent), document the [post-call webhooks](https://elevenlabs.io/docs/eleven-agents/workflows/post-call-webhooks) flow in [engineering/architecture/tech-stack-decisions.md](../../engineering/architecture/tech-stack-decisions.md), and link from `docs/walkthrough.md`.
 5. What's the exact knowledge base shape for the Healthcare scenario? **Baseline locked**: five Markdown seed files under `data/kb/healthcare/` (~150–300 words each); RAG index computation uses Agents Platform KB APIs ([Knowledge base](https://elevenlabs.io/docs/eleven-agents/customization/knowledge-base), [Compute RAG index](https://elevenlabs.io/docs/eleven-agents/api-reference/knowledge-base/compute-rag-index)). Fine-grained chunk parameters follow whatever the SDK exposes at implementation time (confirm via `elevenlabs-docs` skill).
 6. Which OpenAI TTS voice should be the default benchmark comparator? Baseline: `coral`, because it is commonly used in OpenAI examples and avoids tuning the comparison around voice preference. Revisit only after listening tests, not before the first latency run.
+7. Should the repo also exercise the official [`elevenlabs/ui`](https://github.com/elevenlabs/ui) React registry? **Resolved**: yes, as an optional stretch (FR-23a, Task 6.7). Use `Orb`, `ConversationBar`, and `LiveWaveform` on a single Next.js page wired to `DEMO_AGENT_ID_TELECOM`. Optionally document discovery, deps, and friction in local-only notes at the repository root (see `.gitignore`) or in [`docs/reports/`](../../docs/reports/) (Task 7.9). A full React rewrite of the Python lab remains out of scope.
