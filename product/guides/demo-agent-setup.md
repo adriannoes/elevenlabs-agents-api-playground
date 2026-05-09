@@ -99,6 +99,18 @@ Scripts load settings when the process starts. If something was already running 
 uv run python scripts/agent_simulate.py telecom "What is the balance on my line?"
 ```
 
+Multi-turn script (each string is one simulated user turn, in order):
+
+```bash
+uv run python scripts/agent_simulate.py telecom --messages-file ./turns.json
+```
+
+Example `turns.json`:
+
+```json
+["Hello.", "I need to check my line.", "My tax id is 123.456.789-09."]
+```
+
 Requires the matching `DEMO_AGENT_ID_*` to be set. Output is a Rich panel with simulation summary, transcript, and tool calls.
 
 ---

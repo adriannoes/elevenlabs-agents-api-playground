@@ -97,7 +97,7 @@ The `eleven_demo.client` module exposes both surfaces from the same factory.
 - **Chosen**: Operational exploration uses `get_client().conversational_ai.conversations.list` / `get` through `scripts/conversations_list.py` when needed. The CLI prints redacted conversation IDs, status, success, duration, message counts, and analysis summaries so local demos can inspect recent calls without storing raw transcripts in repo artifacts.
 - **Rejected for this repo**: Running a dedicated HTTP endpoint for [post-call webhooks](https://elevenlabs.io/docs/eleven-agents/workflows/post-call-webhooks) — adds deployment surface (TLS, signature verification, uptime, signature validation, and PII redaction) beyond the demo scope while providing marginal benefit for local exploration.
 
-Document webhook flows in narrative docs so production integrations remain discussable without implementing them here. If a production-style system needs durable call records, build a separate authenticated webhook receiver with signature verification and redaction instead of extending this local lab.
+Document webhook flows in narrative docs so production integrations remain discussable without implementing them here. See [`docs/patterns/post-call-webhooks.md`](../../docs/patterns/post-call-webhooks.md) for a concise checklist. If a production-style system needs durable call records, build a separate authenticated webhook receiver with signature verification and redaction instead of extending this local lab.
 
 ## Out of scope (explicit non-goals)
 

@@ -54,6 +54,18 @@ Optional simulation smoke test:
 uv run python scripts/agent_simulate.py telecom "Quero consultar minha linha."
 ```
 
+Multi-turn simulation (JSON file: array of user strings, one per turn):
+
+```bash
+uv run python scripts/agent_simulate.py telecom --messages-file path/to/turns.json
+```
+
+Example `turns.json`:
+
+```json
+["Olá.", "Quero consultar minha linha.", "Meu CPF é 123.456.789-09."]
+```
+
 Run the Gradio app and open the Telecom tab:
 
 ```bash
@@ -286,7 +298,7 @@ For a specific conversation:
 uv run python scripts/conversations_list.py --id <conversation_id>
 ```
 
-The CLI uses the Conversations API and redacts common CPF, email, phone, and card-number patterns before printing summaries. This is the local alternative to running a post-call webhook receiver in the demo repo. The production webhook flow is still documented and discussed in [Tech Stack Decisions](../engineering/architecture/tech-stack-decisions.md), but no long-lived receiver is implemented here.
+The CLI uses the Conversations API and redacts common CPF, email, phone, and card-number patterns before printing summaries. This is the local alternative to running a post-call webhook receiver in the demo repo. For a reference checklist on building a real webhook receiver (verification, PII, HTTPS), see [Post-call webhooks pattern](patterns/post-call-webhooks.md). Rationale for not hosting a receiver in this lab remains in [Tech Stack Decisions](../engineering/architecture/tech-stack-decisions.md).
 
 **Documentation backlog** (detail and checkboxes): [delivery record](../engineering/tasks/tasks-prd-elevenlabs-vertical-exploration.md). High-surface files: [`docs/benchmarks/tts-vendor-comparison.md`](benchmarks/tts-vendor-comparison.md), [`docs/reports/technical-exploration-report.md`](reports/technical-exploration-report.md), and generated evidence under `artifacts/` (see `scripts/generate_evidence_report.py`).
 

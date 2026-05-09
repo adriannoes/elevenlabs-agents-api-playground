@@ -4,6 +4,8 @@ Hands-on **Python** lab for **[ElevenAgents](https://elevenlabs.io/docs/eleven-a
 
 Step-by-step path: [end-to-end walkthrough](docs/walkthrough.md).
 
+**New here?** Start with [Exploring this repository](docs/exploring-this-repo.md).
+
 ---
 
 ## What this explores
@@ -177,6 +179,8 @@ Two flows worth calling out:
 
 ## Further reading
 
+- [Exploring this repository](docs/exploring-this-repo.md)
+- [Extending this lab](docs/extending-this-lab.md)
 - [Delivery record](engineering/tasks/tasks-prd-elevenlabs-vertical-exploration.md)
 - [Walkthrough](docs/walkthrough.md)
 - [TTS vendor methodology](docs/benchmarks/tts-vendor-comparison.md)

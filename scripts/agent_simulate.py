@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
 
 from eleven_demo.agents import simulate
+from eleven_demo.agents.simulation_messages import load_user_messages_from_json_file
 from eleven_demo.config import Settings, get_settings
 
 _AGENT_FIELD: dict[str, str] = {
@@ -37,9 +39,29 @@ def _resolve_agent_id(settings: Settings, scenario: str) -> str:
     return str(raw).strip()
 
 
+def _resolve_messages(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> list[str]:
+    if args.messages_file is not None and args.message is not None:
+        parser.error("Use either a message argument or --messages-file, not both.")
+    if args.messages_file is not None:
+        path = Path(args.messages_file)
+        try:
+            return load_user_messages_from_json_file(path)
+        except OSError as exc:
+            parser.error(f"Cannot read --messages-file: {exc}")
+        except ValueError as exc:
+            parser.error(str(exc))
+    if args.message is not None:
+        return [args.message]
+    parser.error("Provide a message or --messages-file.")
+    raise AssertionError("unreachable")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Simulate one user turn against a demo agent (reads DEMO_AGENT_ID_*).",
+        description="Simulate user turn(s) against a demo agent (reads DEMO_AGENT_ID_*).",
     )
     parser.add_argument(
         "scenario",
@@ -48,7 +70,15 @@ def main() -> None:
     )
     parser.add_argument(
         "message",
-        help="Single simulated user utterance (quote if it contains spaces).",
+        nargs="?",
+        default=None,
+        help="Single simulated user utterance (omit if using --messages-file).",
+    )
+    parser.add_argument(
+        "--messages-file",
+        type=Path,
+        default=None,
+        help="JSON file: UTF-8 array of user strings, one simulated turn in order.",
     )
     parser.add_argument(
         "--language",
@@ -57,10 +87,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    messages = _resolve_messages(parser, args)
     settings = get_settings()
     agent_id = _resolve_agent_id(settings, args.scenario)
 
-    result = simulate(agent_id, [args.message], language=args.language)
+    result = simulate(agent_id, messages, language=args.language)
 
     lines: list[str] = [
         f"[bold]agent_id[/bold]  {agent_id}",
